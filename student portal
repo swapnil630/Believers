@@ -1,0 +1,716 @@
+it is student site
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Portal — BhawanPulse IITR</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --green: #16a34a;
+      --green-bg: rgba(22, 163, 74, 0.12);
+      --yellow: #d97706;
+      --yellow-bg: rgba(217, 119, 6, 0.12);
+      --red: #dc2626;
+      --red-bg: rgba(220, 38, 38, 0.12);
+      --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08);
+    }
+
+    body.dark {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #1f2937;
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); transition: 0.2s; min-height: 100vh; padding-bottom: 50px; }
+
+    .navbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); flex-wrap: wrap; gap: 10px;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.2rem; color: var(--primary); }
+    .brand span { font-size: 0.72rem; background: var(--primary); color: #fff; padding: 3px 8px; border-radius: 99px; }
+
+    .nav-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    button, select.nav-select {
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface-alt);
+      color: var(--text); padding: 8px 12px; border-radius: 10px; font-size: 0.82rem;
+      font-weight: 600; transition: 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    button:hover { border-color: var(--primary); }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    /* Live Sound Toast Notification */
+    .toast-alert {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      background: var(--surface); border-left: 6px solid var(--primary);
+      padding: 16px 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      max-width: 360px; font-size: 0.9rem; font-weight: 600;
+      animation: slideIn 0.25s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .login-container {
+      max-width: 430px; margin: 50px auto; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 16px; padding: 26px; box-shadow: var(--shadow);
+    }
+    .input-group { margin-bottom: 14px; }
+    .input-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .input-group input, .input-group select {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface-alt); color: var(--text); font-size: 0.9rem;
+    }
+
+    .container { max-width: 1080px; margin: 20px auto; padding: 0 16px; }
+
+    .account-strip {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 18px; margin-bottom: 16px; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: var(--shadow);
+    }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%; background: var(--primary);
+      color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800;
+    }
+
+    .bhawan-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; }
+    .bhawan-bar button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .shop-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .shop-tab-card {
+      background: var(--surface); border: 2px solid var(--border); border-radius: 14px;
+      padding: 14px; cursor: pointer; transition: 0.2s;
+    }
+    .shop-tab-card.active { border-color: var(--primary); background: rgba(37, 99, 235, 0.06); }
+    .shop-tab-card.closed-shop { opacity: 0.65; }
+
+    .status-banner {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px 18px; margin-bottom: 18px; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 14px; box-shadow: var(--shadow);
+    }
+
+    .badge { padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+
+    .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+    .item-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; justify-content: space-between;
+      gap: 12px; box-shadow: var(--shadow);
+    }
+    .item-category { font-size: 0.7rem; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+    .item-title { font-size: 1rem; font-weight: 700; margin: 4px 0; }
+    .item-price { font-size: 1.1rem; font-weight: 800; color: var(--primary); }
+
+    .panel-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px; margin-bottom: 20px; box-shadow: var(--shadow);
+    }
+    .order-row {
+      border: 1px solid var(--border); background: var(--surface-alt); border-radius: 10px;
+      padding: 12px 14px; margin-top: 10px; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+    .closed-notice {
+      background: var(--red-bg); border: 1px solid var(--red); color: var(--red);
+      padding: 14px 18px; border-radius: 12px; margin-bottom: 18px; font-weight: 600;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Visual + Sound Notification Toast -->
+  <div id="liveToast" class="toast-alert hidden"></div>
+
+  <nav class="navbar">
+    <div class="brand">🎓 BhawanPulse <span>STUDENT LAPTOP</span></div>
+    <div class="nav-controls">
+      <span id="cloudStatusBadge" class="badge badge-yellow">☁️ Connecting...</span>
+
+      <select id="timeModeSelect" class="nav-select" onchange="changeTimeSimulation(this.value)">
+        <option value="real">🕒 Real System Clock</option>
+        <option value="14">☀️ Demo: 2:00 PM (General + Day Open)</option>
+        <option value="23">🌙 Demo: 11:30 PM (Night Canteen Open)</option>
+        <option value="4">💤 Demo: 4:00 AM (All Closed)</option>
+      </select>
+
+      <button onclick="playStudentReadySound(); showToast('🔔 Sound Tested! Ready Chime Working.')" title="Test Speaker">
+        🔊 Test Sound
+      </button>
+
+      <button id="historyBtn" class="hidden" onclick="toggleHistory()">
+        📜 My Order History (<span id="orderCount">0</span>)
+      </button>
+      <button onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+      <button id="logoutBtn" class="hidden" onclick="logout()">🚪 Logout</button>
+    </div>
+  </nav>
+
+  <!-- STUDENT LOGIN -->
+  <div id="loginBox" class="login-container">
+    <h2 style="margin-bottom: 6px;">🎓 IITR Student Login</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 16px;">
+      Orders are routed strictly to the selected <b>Bhawan + Shop Type</b> with live audio notifications!
+    </p>
+    <div class="input-group">
+      <label>Multi-Laptop Sync Room Code</label>
+      <input type="text" id="roomCodeInput" value="IITR-SYNTAX-ERROR-2026" style="font-weight:700; color:var(--primary);" />
+    </div>
+    <div class="input-group">
+      <label>Student Name</label>
+      <input type="text" id="stuName" value="Shivam Kumar" />
+    </div>
+    <div class="input-group">
+      <label>IITR Email (@iitr.ac.in) or 8-Digit Enrollment No.</label>
+      <input type="text" id="stuId" value="shivam_k@iitr.ac.in" />
+    </div>
+    <div class="input-group">
+      <label>Your Home Bhawan</label>
+      <select id="stuBhawan">
+        <option value="Rajendra Bhawan (RJB)">Rajendra Bhawan (RJB)</option>
+        <option value="Rajiv Bhawan">Rajiv Bhawan</option>
+        <option value="Ravindra Bhawan">Ravindra Bhawan</option>
+        <option value="Cautley Bhawan">Cautley Bhawan</option>
+        <option value="Govind Bhawan">Govind Bhawan</option>
+        <option value="Sarojini Bhawan">Sarojini Bhawan</option>
+        <option value="Jawahar Bhawan">Jawahar Bhawan</option>
+      </select>
+    </div>
+    <button class="btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="loginStudent()">
+      Enter Student Portal (Enable Audio)
+    </button>
+  </div>
+
+  <!-- MAIN STUDENT VIEW -->
+  <div id="appBox" class="container hidden">
+    <div class="account-strip">
+      <div class="user-info">
+        <div class="avatar" id="avatarChar">S</div>
+        <div>
+          <div style="font-weight: 800;" id="profName">Shivam Kumar</div>
+          <div style="font-size: 0.8rem; color: var(--muted);" id="profMeta"></div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span id="liveClockBadge" class="badge badge-yellow">🕒 Current Time: --:--</span>
+        <span class="badge badge-green" id="roomDisplayBadge">📡 Room: IITR-SYNTAX-ERROR-2026</span>
+      </div>
+    </div>
+
+    <!-- Student Order History Panel -->
+    <div id="historyPanel" class="panel-box hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>📜 My Order History (Across All Bhawans)</h3>
+        <button onclick="toggleHistory()">✖ Close</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+
+    <!-- Bhawan Selector -->
+    <div class="bhawan-bar" id="bhawanBar"></div>
+
+    <!-- 3 Shop Categories -->
+    <div class="shop-type-grid" id="shopTabsGrid"></div>
+
+    <!-- Closed Shop Alert -->
+    <div id="closedBanner" class="closed-notice hidden">
+      <span id="closedBannerText">🔒 This shop is currently CLOSED.</span>
+      <span style="font-size:0.8rem;">Use the top-right Time Simulator to test other hours!</span>
+    </div>
+
+    <!-- Crowd Status + Anti-Troll Consensus -->
+    <div class="status-banner">
+      <div>
+        <h3 id="shopHeading" style="font-size:1.1rem;"></h3>
+        <p id="shopSubTiming" style="font-size:0.82rem; color:var(--muted); margin-top:2px;"></p>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+        <div>
+          <span style="font-size:0.8rem; color:var(--muted);">Shop Crowd: </span>
+          <span id="crowdBadge" class="badge badge-green"></span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span id="voteInfo" style="font-size:0.75rem; color:var(--muted);">
+            Anti-Troll: 3 student votes required for this shop →
+          </span>
+          <button onclick="voteCrowd('Normal')" style="padding:4px 8px; font-size:0.74rem;">🟢 Vote Free</button>
+          <button onclick="voteCrowd('Crowded')" style="padding:4px 8px; font-size:0.74rem;">🔴 Vote Crowded</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory Grid -->
+    <div id="itemsGrid" class="items-grid"></div>
+  </div>
+
+  <script>
+    // --- WEB AUDIO SYNTHESIZER (Zero External MP3 Files Needed!) ---
+    let audioCtx = null;
+    function unlockAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    // Upward happy chime when Shopkeeper marks order "Ready for Pickup"
+    function playStudentReadySound() {
+      unlockAudio();
+      const now = audioCtx.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+        gain.gain.setValueAtTime(0.25, now + idx * 0.11);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + idx * 0.11);
+        osc.stop(now + idx * 0.11 + 0.32);
+      });
+    }
+
+    // Low double alert tone when Shopkeeper marks item "Out of Stock / Rejected"
+    function playStudentRejectedSound() {
+      unlockAudio();
+      const now = audioCtx.currentTime;
+      [300, 220].forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, now + idx * 0.22);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.22 + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + idx * 0.22);
+        osc.stop(now + idx * 0.22 + 0.27);
+      });
+    }
+
+    // Quick pop sound when student clicks Reserve
+    function playClickConfirmSound() {
+      unlockAudio();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(900, now + 0.12);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const box = document.getElementById("liveToast");
+      box.innerText = msg;
+      box.classList.remove("hidden");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => box.classList.add("hidden"), 4500);
+    }
+
+    const BASE_CATALOG = [
+      { id: 1, shop: "General Shop", category: "Stationery", name: "Practical File / Lab Manual", price: 65, defaultStatus: "In Stock" },
+      { id: 2, shop: "General Shop", category: "Stationery", name: "A4 Assignment Sheets (50 Pack)", price: 45, defaultStatus: "In Stock" },
+      { id: 3, shop: "General Shop", category: "Service", name: "Instant B&W Printout / Xerox", price: 2, defaultStatus: "In Stock" },
+      { id: 4, shop: "General Shop", category: "Engineering", name: "Mini Drafter & Graph Sheet Set", price: 180, defaultStatus: "Low Stock" },
+      { id: 5, shop: "General Shop", category: "Dairy", name: "Amul Gold Tetra Milk (1 Litre)", price: 72, defaultStatus: "In Stock" },
+      { id: 6, shop: "General Shop", category: "Hostel Need", name: "Maggi 4-Pack (For Room Kettle)", price: 56, defaultStatus: "In Stock" },
+      { id: 7, shop: "Day Canteen", category: "Hot Snack", name: "Baked Aloo Patties", price: 20, defaultStatus: "In Stock" },
+      { id: 8, shop: "Day Canteen", category: "Beverage", name: "Thick Cold Coffee", price: 35, defaultStatus: "In Stock" },
+      { id: 9, shop: "Day Canteen", category: "Hot Snack", name: "Crispy Samosa (2 Pcs) + Chhole", price: 30, defaultStatus: "Low Stock" },
+      { id: 10, shop: "Day Canteen", category: "Beverage", name: "Fresh Nimbu Masala Soda", price: 20, defaultStatus: "In Stock" },
+      { id: 11, shop: "Night Canteen", category: "Exam Staple", name: "Double Masala Cheese Maggi", price: 40, defaultStatus: "In Stock" },
+      { id: 12, shop: "Night Canteen", category: "Protein", name: "Double Egg Bread Omelette", price: 35, defaultStatus: "In Stock" },
+      { id: 13, shop: "Night Canteen", category: "Beverage", name: "Hot Kulhad Adrak Chai", price: 15, defaultStatus: "In Stock" },
+      { id: 14, shop: "Night Canteen", category: "Tandoor", name: "Aloo Pyaaz Paratha with Curd", price: 35, defaultStatus: "In Stock" }
+    ];
+
+    const BHAWANS = [
+      "Rajendra Bhawan (RJB)", "Rajiv Bhawan", "Ravindra Bhawan",
+      "Cautley Bhawan", "Govind Bhawan", "Sarojini Bhawan", "Jawahar Bhawan"
+    ];
+
+    const SHOP_CONFIG = {
+      "General Shop": {
+        icon: "🛒", label: "General Shop", hoursText: "9:00 AM – 9:00 PM",
+        desc: "Stationery, Lab Manuals, Printouts, Milk & Kettle Maggi",
+        isOpen: (h) => h >= 9 && h < 21
+      },
+      "Day Canteen": {
+        icon: "☀️", label: "Day Canteen", hoursText: "10:00 AM – 10:00 PM",
+        desc: "Baked Patties, Cold Coffee, Samosa & Fresh Shikanji",
+        isOpen: (h) => h >= 10 && h < 22
+      },
+      "Night Canteen": {
+        icon: "🌙", label: "Night Canteen", hoursText: "10:00 PM – 2:00 AM",
+        desc: "Late-Night Exam Maggi, Omelette, Paratha & Kulhad Chai",
+        isOpen: (h) => h >= 22 || h < 2
+      }
+    };
+
+    const STORAGE_KEY = "BHAWAN_PULSE_ISOLATED_V3";
+    let mqttClient = null;
+    let mqttTopic = "bhawanpulse/iitr/v3/IITR-SYNTAX-ERROR-2026";
+
+    let appState = {
+      stockByBhawanItem: {},
+      crowdByShop: {},
+      votesByShop: {},
+      orders: []
+    };
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { try { appState = JSON.parse(saved); } catch(e){} }
+
+    // Track previous order statuses so we can ring a sound when the Shopkeeper updates a student's order!
+    let knownOrderStatuses = {};
+    let student = null;
+    let selectedBhawan = "Rajendra Bhawan (RJB)";
+    let selectedShop = "General Shop";
+    let simulatedHour = "real";
+    let showHistory = false;
+
+    function syncKnownOrderStatuses(ordersList) {
+      ordersList.forEach(o => {
+        knownOrderStatuses[o.orderId] = o.status;
+      });
+    }
+    syncKnownOrderStatuses(appState.orders);
+
+    function checkAndPlayStudentOrderAlert(incomingState) {
+      if (!student) return;
+      (incomingState.orders || []).forEach(o => {
+        if (o.studentId === student.id) {
+          const prevStatus = knownOrderStatuses[o.orderId];
+          if (prevStatus && prevStatus !== o.status) {
+            if (o.status.includes("Ready")) {
+              playStudentReadySound();
+              showToast(`🔔 DING! Order ${o.orderId} (${o.itemName}) is READY FOR PICKUP at ${o.bhawan}!`);
+            } else if (o.status.includes("Cancelled")) {
+              playStudentRejectedSound();
+              showToast(`⚠️ Order ${o.orderId} (${o.itemName}) was cancelled — Out of Stock at ${o.bhawan}.`);
+            }
+          }
+        }
+        knownOrderStatuses[o.orderId] = o.status;
+      });
+    }
+
+    function getItemStatus(bhawan, item) {
+      const key = `${bhawan}__${item.id}`;
+      return appState.stockByBhawanItem[key] || item.defaultStatus;
+    }
+
+    function getShopCrowd(bhawan, shop) {
+      const key = `${bhawan}__${shop}`;
+      return appState.crowdByShop[key] || "Normal";
+    }
+
+    function initCloudSync(roomCode) {
+      mqttTopic = "bhawanpulse/iitr/v3/" + roomCode.trim();
+      document.getElementById("roomDisplayBadge").innerText = "📡 Room: " + roomCode.trim();
+
+      if (mqttClient) mqttClient.end();
+      mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
+
+      mqttClient.on("connect", () => {
+        const badge = document.getElementById("cloudStatusBadge");
+        badge.className = "badge badge-green";
+        badge.innerText = "☁️ Multi-Laptop Sync LIVE";
+        mqttClient.subscribe(mqttTopic, { qos: 1 });
+      });
+
+      mqttClient.on("message", (topic, message) => {
+        if (topic === mqttTopic) {
+          try {
+            const incoming = JSON.parse(message.toString());
+            checkAndPlayStudentOrderAlert(incoming);
+            appState = incoming;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            renderAll();
+          } catch (err) {}
+        }
+      });
+    }
+
+    function broadcastStateUpdate() {
+      syncKnownOrderStatuses(appState.orders);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      if (mqttClient && mqttClient.connected) {
+        mqttClient.publish(mqttTopic, JSON.stringify(appState), { qos: 1, retain: true });
+      }
+      renderAll();
+    }
+
+    window.addEventListener("storage", () => {
+      const s = localStorage.getItem(STORAGE_KEY);
+      if (s) {
+        const incoming = JSON.parse(s);
+        checkAndPlayStudentOrderAlert(incoming);
+        appState = incoming;
+        renderAll();
+      }
+    });
+
+    function getCurrentHour() {
+      if (simulatedHour !== "real") return parseInt(simulatedHour, 10);
+      return new Date().getHours();
+    }
+
+    function formatHourLabel() {
+      if (simulatedHour === "real") {
+        return "Live Clock: " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+      const h = parseInt(simulatedHour, 10);
+      if (h === 14) return "Simulated: 2:00 PM (Daytime)";
+      if (h === 23) return "Simulated: 11:30 PM (Night Exam Hour)";
+      return "Simulated: 4:00 AM (Late Night)";
+    }
+
+    function autoSelectOpenShop() {
+      const h = getCurrentHour();
+      if (SHOP_CONFIG["General Shop"].isOpen(h)) selectedShop = "General Shop";
+      else if (SHOP_CONFIG["Day Canteen"].isOpen(h)) selectedShop = "Day Canteen";
+      else if (SHOP_CONFIG["Night Canteen"].isOpen(h)) selectedShop = "Night Canteen";
+    }
+
+    function changeTimeSimulation(val) {
+      simulatedHour = val;
+      autoSelectOpenShop();
+      renderAll();
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark");
+      document.getElementById("themeBtn").innerText = document.body.classList.contains("dark") ? "☀️ Day" : "🌙 Dark";
+    }
+
+    function loginStudent() {
+      unlockAudio();
+      const name = document.getElementById("stuName").value.trim() || "IITR Student";
+      const id = document.getElementById("stuId").value.trim();
+      const bhawan = document.getElementById("stuBhawan").value;
+      const roomCode = document.getElementById("roomCodeInput").value.trim() || "IITR-SYNTAX-ERROR-2026";
+
+      if (!id.endsWith("@iitr.ac.in") && !/^\d{8}$/.test(id)) {
+        alert("Access Denied: Only @iitr.ac.in emails or 8-digit IITR Enrollment Numbers allowed!");
+        return;
+      }
+
+      student = { name, id, bhawan };
+      selectedBhawan = bhawan;
+      autoSelectOpenShop();
+      initCloudSync(roomCode);
+
+      document.getElementById("loginBox").classList.add("hidden");
+      document.getElementById("appBox").classList.remove("hidden");
+      document.getElementById("historyBtn").classList.remove("hidden");
+      document.getElementById("logoutBtn").classList.remove("hidden");
+      renderAll();
+    }
+
+    function logout() {
+      student = null;
+      document.getElementById("loginBox").classList.remove("hidden");
+      document.getElementById("appBox").classList.add("hidden");
+      document.getElementById("historyBtn").classList.add("hidden");
+      document.getElementById("logoutBtn").classList.add("hidden");
+    }
+
+    function toggleHistory() {
+      showHistory = !showHistory;
+      document.getElementById("historyPanel").classList.toggle("hidden", !showHistory);
+    }
+
+    function voteCrowd(type) {
+      playClickConfirmSound();
+      const shopKey = `${selectedBhawan}__${selectedShop}`;
+      if (!appState.votesByShop[shopKey]) {
+        appState.votesByShop[shopKey] = { Normal: 0, Crowded: 0 };
+      }
+      appState.votesByShop[shopKey][type]++;
+      const needed = 3 - appState.votesByShop[shopKey][type];
+
+      if (needed <= 0) {
+        appState.crowdByShop[shopKey] = type;
+        appState.votesByShop[shopKey] = { Normal: 0, Crowded: 0 };
+        document.getElementById("voteInfo").innerText = `✅ Verified by 3 students for ${selectedBhawan}!`;
+      } else {
+        document.getElementById("voteInfo").innerText = `⏳ Vote recorded (${appState.votesByShop[shopKey][type]}/3 needed for ${selectedBhawan})`;
+      }
+      broadcastStateUpdate();
+    }
+
+    function reserveItem(itemId) {
+      const h = getCurrentHour();
+      if (!SHOP_CONFIG[selectedShop].isOpen(h)) {
+        alert(`Sorry! ${selectedShop} is only open during ${SHOP_CONFIG[selectedShop].hoursText}.`);
+        return;
+      }
+
+      const product = BASE_CATALOG.find(p => p.id === itemId);
+      const currentSt = getItemStatus(selectedBhawan, product);
+      if (!product || currentSt === "Out of Stock") return;
+
+      playClickConfirmSound();
+
+      const shortCode = selectedBhawan.split(" ")[0].toUpperCase().slice(0, 4);
+      const token = `#${shortCode}-` + Math.floor(100 + Math.random() * 900);
+      const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      appState.orders.unshift({
+        orderId: token,
+        studentName: student.name,
+        studentId: student.id,
+        bhawan: selectedBhawan,
+        shop: selectedShop,
+        itemId: product.id,
+        itemName: product.name,
+        price: product.price,
+        time: `Today, ${nowStr}`,
+        status: "Pending Shopkeeper Approval"
+      });
+
+      broadcastStateUpdate();
+      showToast(`✅ Order ${token} sent to ${selectedBhawan} (${selectedShop})!`);
+    }
+
+    function renderAll() {
+      if (!student) return;
+      const hour = getCurrentHour();
+
+      document.getElementById("avatarChar").innerText = student.name.charAt(0).toUpperCase();
+      document.getElementById("profName").innerText = student.name;
+      document.getElementById("profMeta").innerText = `${student.id} • Home: ${student.bhawan}`;
+      document.getElementById("liveClockBadge").innerText = "🕒 " + formatHourLabel();
+
+      document.getElementById("bhawanBar").innerHTML = BHAWANS.map(b => `
+        <button class="${b === selectedBhawan ? 'active' : ''}" onclick="selectedBhawan='${b}'; renderAll();">
+          🏢 ${b}
+        </button>
+      `).join("");
+
+      document.getElementById("shopTabsGrid").innerHTML = Object.keys(SHOP_CONFIG).map(key => {
+        const cfg = SHOP_CONFIG[key];
+        const openNow = cfg.isOpen(hour);
+        return `
+          <div class="shop-tab-card ${selectedShop === key ? 'active' : ''} ${!openNow ? 'closed-shop' : ''}"
+               onclick="selectedShop='${key}'; renderAll();">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <h4>${cfg.icon} ${cfg.label}</h4>
+              <span class="badge ${openNow ? 'badge-green' : 'badge-red'}">
+                ${openNow ? '🟢 OPEN NOW' : '🔒 CLOSED'}
+              </span>
+            </div>
+            <p style="font-size:0.8rem; font-weight:700;">🕒 ${cfg.hoursText}</p>
+            <p style="font-size:0.76rem; color:var(--muted); margin-top:2px;">${cfg.desc}</p>
+          </div>
+        `;
+      }).join("");
+
+      const isSelectedShopOpen = SHOP_CONFIG[selectedShop].isOpen(hour);
+      const closedBanner = document.getElementById("closedBanner");
+      closedBanner.classList.toggle("hidden", isSelectedShopOpen);
+      if (!isSelectedShopOpen) {
+        document.getElementById("closedBannerText").innerText =
+          `🔒 ${selectedBhawan} (${selectedShop}) is CLOSED right now (Active Hours: ${SHOP_CONFIG[selectedShop].hoursText}).`;
+      }
+
+      const currentCrowd = getShopCrowd(selectedBhawan, selectedShop);
+      document.getElementById("shopHeading").innerText = `${selectedBhawan} — ${selectedShop}`;
+      document.getElementById("shopSubTiming").innerText = `Assigned Hours: ${SHOP_CONFIG[selectedShop].hoursText} • Isolated Inventory`;
+      const cBadge = document.getElementById("crowdBadge");
+      cBadge.className = `badge ${currentCrowd === 'Normal' ? 'badge-green' : 'badge-red'}`;
+      cBadge.innerText = currentCrowd === "Normal" ? "🟢 Khula Hai (Normal Crowd)" : "🔴 Heavy Exam Rush (15m+ wait)";
+
+      const items = BASE_CATALOG.filter(p => p.shop === selectedShop);
+      document.getElementById("itemsGrid").innerHTML = items.map(item => {
+        const st = getItemStatus(selectedBhawan, item);
+        let bClass = "badge-green";
+        if (st === "Low Stock") bClass = "badge-yellow";
+        if (st === "Out of Stock") bClass = "badge-red";
+
+        let btnHTML = "";
+        if (!isSelectedShopOpen) {
+          btnHTML = `<button disabled style="width:100%; justify-content:center; opacity:0.5; cursor:not-allowed;">🔒 Shop Closed (${SHOP_CONFIG[selectedShop].hoursText})</button>`;
+        } else if (st === "Out of Stock") {
+          btnHTML = `<button disabled style="width:100%; justify-content:center; opacity:0.5; cursor:not-allowed;">🔴 Out of Stock at ${selectedBhawan.split(' ')[0]}</button>`;
+        } else {
+          btnHTML = `<button class="btn-primary" style="width:100%; justify-content:center;" onclick="reserveItem(${item.id})">⚡ Reserve at ${selectedBhawan.split(' ')[0]}</button>`;
+        }
+
+        return `
+          <div class="item-card">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="item-category">${item.category}</span>
+                <span class="badge ${bClass}">${st}</span>
+              </div>
+              <div class="item-title">${item.name}</div>
+              <div class="item-price">₹${item.price}</div>
+            </div>
+            ${btnHTML}
+          </div>
+        `;
+      }).join("");
+
+      const myOrders = appState.orders.filter(o => o.studentId === student.id);
+      document.getElementById("orderCount").innerText = myOrders.length;
+      document.getElementById("historyList").innerHTML = myOrders.length === 0
+        ? `<p style="color:var(--muted); margin-top:10px;">No orders placed yet.</p>`
+        : myOrders.map(o => {
+            let stClass = "badge-yellow";
+            if (o.status.includes("Ready")) stClass = "badge-green";
+            if (o.status.includes("Cancelled")) stClass = "badge-red";
+            return `
+              <div class="order-row">
+                <div>
+                  <strong>${o.orderId} — ${o.itemName} (₹${o.price})</strong>
+                  <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;">
+                    📍 Routed to: <b>${o.bhawan} — ${o.shop}</b> • 🕒 ${o.time}
+                  </div>
+                </div>
+                <span class="badge ${stClass}">${o.status}</span>
+              </div>
+            `;
+          }).join("");
+    }
+  </script>
+</body>
+</html>
